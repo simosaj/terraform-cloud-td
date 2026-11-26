@@ -1,4 +1,4 @@
-# TD 2 · Infrastructure GCP et AWS
+# TD 2 — Terraform sur GCP et AWS
 
 Dans chaque VPC, le nom privé `app.td.internal.` renvoie les adresses des deux VM. Une application installée sur une VM peut se connecter à MySQL avec ses propres identifiants. Les VM sont réparties entre deux zones. Le DNS distribue leurs adresses sans vérifier leur état de santé. La base du TD reste mono-zone.
 
@@ -11,6 +11,36 @@ Dans chaque VPC, le nom privé `app.td.internal.` renvoie les adresses des deux 
 | Réplication des VM | `count` et alternance entre zones a et b | `count` et alternance entre les sous-réseaux |
 
 Les dossiers [foundation-gcp](foundation-gcp) et [foundation-aws](foundation-aws) sont les points d’entrée. Chacun appelle un [module réutilisable](modules). Pour une autre application, appeler le module avec un autre préfixe `name` et une autre `dns_zone`.
+
+## Organisation
+
+Chaque dossier `foundation-*` appelle un module dans `modules/`.
+
+| Fichier | Rôle |
+| --- | --- |
+| `main.tf` | Configure le provider et appelle le module. |
+| `variables.tf` | Déclare les paramètres du TD. |
+| `outputs.tf` | Affiche les adresses et les identifiants après le déploiement. |
+| `versions.tf` | Déclare les versions compatibles de Terraform et du provider. |
+| `.terraform.lock.hcl` | Conserve la version choisie et les empreintes du provider. |
+
+Dans les modules, les ressources sont rangées dans `network.tf`, `compute.tf`, `database.tf` et `dns.tf`.
+
+## Choix réalisés
+
+Le méta-argument `count` permet de passer d’une VM à plusieurs VM. `count.index` numérote les VM, et `element` alterne entre les deux zones. Deux VM apportent de la redondance, mais une panne nécessite encore une intervention puisque le DNS ne teste pas leur disponibilité.
+
+Cloud SQL utilise un réseau géré par Google, relié au VPC par Private Services Access. Sur AWS, RDS utilise les sous-réseaux du VPC et son groupe de sécurité autorise MySQL depuis les VM.
+
+Les variables `name`, `dns_zone`, `vm_count` et `region` sont accessibles depuis les deux dossiers principaux. Les zones AWS sont déduites de la région avec les suffixes a et b. Le module GCP utilise les suffixes a et b. Il faut vérifier que ces zones existent avant de choisir une autre région.
+
+Pour changer le préfixe et le nombre de VM, lancer dans le dossier du fournisseur choisi.
+
+```sh
+terraform plan -var="name=mon-app" -var="vm_count=3"
+```
+
+Les deux modules exposent `vpc_id`, `vm_private_ips`, `database_host` et `app_dns`. Après un déploiement, `terraform output` les affiche. La sortie `database_host` donne l’adresse à utiliser dans la configuration de l’application.
 
 ## Reproduire le plan GCP
 
@@ -59,9 +89,12 @@ Le workflow a exécuté avec succès `terraform fmt -check -recursive`, puis `te
 
 Tous les plans annoncent zéro modification et zéro suppression.
 
-[Exécution GitHub Actions vérifiée](https://github.com/simosaj/terraform-cloud-td/actions/runs/45820628966)
+[Exécution GitHub Actions vérifiée](https://github.com/simosaj/terraform-cloud-td/actions/runs/45822545259)
 
 ### Plan GCP complet
+
+<details>
+<summary>Afficher le plan GCP</summary>
 
 ```text
 Terraform used the selected providers to generate the following execution
@@ -371,9 +404,23 @@ Terraform will perform the following actions:
     }
 
 Plan: 9 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + app_dns        = "app.td.internal."
+  + database_host  = (known after apply)
+  + vm_private_ips = [
+      + (known after apply),
+      + (known after apply),
+    ]
+  + vpc_id         = (known after apply)
 ```
 
+</details>
+
 ### Plan AWS complet
+
+<details>
+<summary>Afficher le plan AWS</summary>
 
 ```text
 Terraform used the selected providers to generate the following execution
@@ -813,4 +860,15 @@ Terraform will perform the following actions:
     }
 
 Plan: 14 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + app_dns        = (known after apply)
+  + database_host  = (known after apply)
+  + vm_private_ips = [
+      + (known after apply),
+      + (known after apply),
+    ]
+  + vpc_id         = (known after apply)
 ```
+
+</details>
