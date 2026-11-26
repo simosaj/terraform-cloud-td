@@ -1,13 +1,11 @@
-variable "vm_count" {
-  type    = number
-  default = 2
-}
-
 provider "aws" {
-  region = "eu-west-3"
+  region = var.region
 }
 
 module "foundation" {
   source   = "../modules/aws"
+  name     = var.name
+  dns_zone = var.dns_zone
   vm_count = var.vm_count
+  zones    = ["${var.region}a", "${var.region}b"]
 }

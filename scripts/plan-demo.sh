@@ -18,7 +18,7 @@ for cloud in gcp aws; do
   dir="$out/foundation-$cloud"
   mod="$out/modules/$cloud"
   mkdir -p "$dir" "$mod"
-  cp "$src/foundation-$cloud/"{main.tf,versions.tf,.terraform.lock.hcl} "$dir/"
+  cp "$src/foundation-$cloud/"{main.tf,variables.tf,versions.tf,.terraform.lock.hcl} "$dir/"
   cp "$src/modules/$cloud/"{variables.tf,versions.tf} "$mod/"
   if [[ $cloud == aws ]]; then
     cat > "$dir/offline_override.tf" <<'HCL'
@@ -34,7 +34,11 @@ HCL
   for step in provider network compute database dns replicas; do
     case "$step" in
       provider) ;;
-      replicas) export TF_VAR_vm_count=2 ;;
+      replicas)
+        export TF_VAR_vm_count=2
+        cp "$src/modules/$cloud/outputs.tf" "$mod/"
+        cp "$src/foundation-$cloud/outputs.tf" "$dir/"
+        ;;
       *) cp "$src/modules/$cloud/$step.tf" "$mod/" ;;
     esac
     if [[ $step == provider ]]; then export TF_VAR_vm_count=1; fi
