@@ -24,3 +24,7 @@ override.tf
 *_override.tf
 .terraformrc
 terraform.rc
+
+# Environnements Python locaux
+.venv/
+__pycache__/

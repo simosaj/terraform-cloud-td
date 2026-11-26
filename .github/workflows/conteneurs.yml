@@ -1,0 +1,62 @@
+name: TD 3 - Conteneurs
+on:
+  push:
+    paths:
+      - 'TD/3_conteneurisation/**'
+      - '.github/workflows/conteneurs.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  td3:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: TD/3_conteneurisation
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Servir la page sur le port 8080
+        run: |
+          docker build -t mon-frontend frontend
+          docker run -d --name frontend-ctn -p 8080:80 mon-frontend
+          curl -fsS --retry 10 --retry-connrefused http://localhost:8080/ | cmp - frontend/index.html
+          docker image inspect mon-frontend --format '{{json .Config.Entrypoint}} {{json .Config.Cmd}}'
+      - name: Vérifier les outils, le réseau et les droits
+        run: |
+          docker build --target tools -t toolbox-root backend
+          docker run -d --name toolbox-ctn toolbox-root
+          docker exec toolbox-ctn sh -ec 'test "$(whoami)" = root; test "$OWNER" = Mohamed; command -v bash htop vim netstat; netstat -rn; apt-get update -qq; apt-get install -y curl'
+          gateway=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' toolbox-ctn)
+          docker exec toolbox-ctn curl -fsS "http://$gateway:8080/" | cmp - frontend/index.html
+          docker build -t toolbox backend
+          docker run --rm toolbox sh -ec 'test "$(whoami)" = nonroot; if apt-get install -y curl; then exit 1; fi'
+      - name: Vérifier la mise à jour de la page
+        run: |
+          cp -r frontend "$RUNNER_TEMP/frontend-v2"
+          echo '<!-- seconde version -->' >> "$RUNNER_TEMP/frontend-v2/index.html"
+          docker build -t mon-frontend:v2 "$RUNNER_TEMP/frontend-v2"
+          curl -fsS http://localhost:8080/ | cmp - frontend/index.html
+          docker rm -f frontend-ctn
+          docker run -d --name frontend-ctn -p 8080:80 mon-frontend:v2
+          curl -fsS --retry 10 --retry-connrefused http://localhost:8080/ | cmp - "$RUNNER_TEMP/frontend-v2/index.html"
+      - name: Envoyer et recevoir un message RabbitMQ
+        run: |
+          docker run -d --name rabbitmq --hostname rabbitmq -p 127.0.0.1:5672:5672 rabbitmq:3.12-management
+          python3 -m venv "$RUNNER_TEMP/venv"
+          source "$RUNNER_TEMP/venv/bin/activate"
+          pip install -r rabbitmq/requirements.txt
+          for attempt in {1..30}; do
+            if docker exec rabbitmq rabbitmq-diagnostics -q check_port_connectivity; then break; fi
+            sleep 2
+          done
+          python rabbitmq/send.py "Bonjour du TD"
+          timeout 20 python rabbitmq/receive.py --once | grep -Fx 'Reçu : Bonjour du TD'
+      - name: Exporter l’image frontend testée
+        run: docker save mon-frontend | gzip -1 > "$RUNNER_TEMP/frontend.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-docker
+          path: ${{ runner.temp }}/frontend.tar.gz
+          retention-days: 1
+          compression-level: 0
