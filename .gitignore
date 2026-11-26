@@ -1,0 +1,26 @@
+# Local credentials and environment files (all directories)
+*.json
+*.pem
+*.key
+*.p12
+.env
+.env.*
+.aws/
+secrets/
+credentials
+credentials.*
+# Machine-specific settings and Terraform runtime artifacts
+.terraform/
+terraform.tfstate.d/
+*.tfstate*
+*.tfvars*
+*.tfplan
+*.plan
+tfplan*
+plan.out
+*.log
+crash.*
+override.tf
+*_override.tf
+.terraformrc
+terraform.rc

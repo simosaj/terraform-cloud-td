@@ -1,0 +1,23 @@
+name: Terraform TD
+on: [push, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  plans:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.11.4
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+      - name: Valider chaque étape et calculer les deux plans de démonstration
+        shell: bash
+        run: |
+          set -o pipefail
+          bash scripts/plan-demo.sh | tee "$RUNNER_TEMP/plans.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plans-terraform
+          path: ${{ runner.temp }}/plans.txt
