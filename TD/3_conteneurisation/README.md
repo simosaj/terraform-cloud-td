@@ -96,6 +96,16 @@ python rabbitmq/receive.py --once
 
 La sortie attendue est `Reçu : Bonjour depuis Dijon`. Le producteur écrit dans la file `hello`. Le consommateur lit le message puis confirme sa réception. Sans `--once`, il reste en écoute jusqu’à Ctrl+C.
 
+## Résultats
+
+Le [test du TD sur GitHub Actions](https://github.com/simosaj/terraform-cloud-td/actions/runs/45824145321) a vérifié le contenu exact de la page sur le port 8080, puis depuis la toolbox via la passerelle Docker. Après reconstruction, la nouvelle page est apparue au remplacement du conteneur. L’installation de curl a réussi en root et a échoué avec `nonroot`. Le consommateur RabbitMQ a reçu `Bonjour du TD`.
+
+L’image Linux amd64 du frontend initial est disponible dans le registre du cours avec le tag **`frontend-2026:sajib`**. L’empreinte lue dans Artifact Registry est identique à celle de l’image testée :
+
+```text
+sha256:f36cb5863dbaa3fb11d21b2b20069a7512a1740713100bb1989c9209e4a68229
+```
+
 ## Nettoyage
 
 ```sh
